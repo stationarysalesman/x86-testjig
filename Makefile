@@ -39,7 +39,7 @@ HDRS = \
 OBJS = ${HDRS:.h=.o}
 
 CC     = gcc
-CFLAGS = -O0 -g
+CFLAGS = -O3
 ESLDIR = easel
 AR = /usr/bin/ar
 MYLIBDIRS = -L./${ESLDIR}

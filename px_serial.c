@@ -91,7 +91,7 @@ uint64_t filter_start_time, filter_end_time;
   if (P > eng->F1) return eslFAIL;
   if (eng->stats) eng->stats->n_past_msv++;
 
-  /* Biased composition HMM, ad hoc, acts as a modified null 
+  /* Biased composition HMM, ad hoc, acts as a modified null */ 
   if (do_biasfilter)
     {
  //     if ((status = p7_bg_FilterScore(bg, dsq, L, &(eng->biassc))) != eslOK) return status;
@@ -105,20 +105,20 @@ uint64_t filter_start_time, filter_end_time;
   // TODO: in scan mode, you have to load the rest of the oprofile now,
   // configure its length model, and get GA/TC/NC thresholds.
 
-  /* Second level: ViterbiFilter(), multihit with <om> 
+  /* Second level: ViterbiFilter(), multihit with <om> */ 
   if (P > eng->F2)
     {
       if (eng->stats) eng->stats->n_ran_vit++;
       Viterbi_calls++;
       //printf("P = %.4f. Running Vit Filter\n", P);
-      filter_start_time = __rdtsc();
-//      status = p7_ViterbiFilter(dsq, L, om, eng->fx, &(eng->vfsc));  
+      filter_start_time = time(NULL);
+      status = p7_ViterbiFilter(dsq, L, om, eng->fx, &(eng->vfsc));  
       if (status != eslOK && status != eslERANGE) return status;
 
       seq_score = (eng->vfsc - eng->biassc) / eslCONST_LOG2;
       P  = esl_gumbel_surv(seq_score,  om->evparam[p7_VMU],  om->evparam[p7_VLAMBDA]);
  
-      filter_end_time = __rdtsc();
+      filter_end_time = time(NULL);
       Viterbi_time += (filter_end_time - filter_start_time);   
       if (P > eng->F2) return eslFAIL;
     }
@@ -220,8 +220,9 @@ main(int argc, char **argv)
   else if (status != eslOK)        p7_Fail("Unexpected error in opening dsqdata (code %d)", status);
 
   eng = p7_engine_Create(abc, NULL, NULL, gm->M, 400);
-
-  uint64_t seqs = 0, chunks = 0;
+	FILE *fp = fopen("viterbioutput-x86.txt", "w");
+  p7_filtermx_SetDumpMode(eng->fx, fp, 1);
+	uint64_t seqs = 0, chunks = 0;
    while (( status = esl_dsqdata_Read(dd, &chu)) == eslOK)  
     {
 	  seqs++;
@@ -233,11 +234,13 @@ main(int argc, char **argv)
 	  p7_oprofile_ReconfigLength(om, (int) chu->L[i]); //         (ditto)
 	  
 	  //printf("seq %d %s\n", chu->i0+i, chu->name[i]);
-
+		if (chunks >= 10) exit(0); 
 	  status = p7_engine_Overthruster_timing(eng, chu->dsq[i], (int) chu->L[i], om, bg);  
 	  if (status == eslFAIL) { 
 	    p7_engine_Reuse(eng);
-	    continue;
+		  p7_filtermx_SetDumpMode(eng->fx, fp, 1);
+
+			continue;
 	  }
 
     Main_calls++;
@@ -272,7 +275,8 @@ main(int argc, char **argv)
   printf("%lu calls to Main comparison routine\n", Main_calls);
   */
   printf("Total time: %" PRId64 "\n", program_end_time-program_start_time);
-  printf("Main_calls, sequences\n%" PRId64 ", %" PRId64 "\n", Main_calls, seqs);
+  printf("Main_calls, sequences, msv calls\n%" PRId64 ", %" PRId64 ", %" PRId64 "\n", Main_calls, seqs, MSV_calls);
+  printf("Viterbi calls: %lu\n", Viterbi_calls);
   exit(0);
 }
 
